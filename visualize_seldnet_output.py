@@ -1,5 +1,6 @@
 #
 # A wrapper script that trains the SELDnet. The training stops when the early stopping metric - SELD error stops improving.
+# 一个训练SELDnet的包装器脚本。当早期停止度量-SELD错误停止改进时，训练停止。
 #
 import numpy as np
 import os
@@ -23,11 +24,12 @@ def main(argv):
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
     # use parameter set defined by user
+    # 使用用户定义的参数集
     task_id = '1' if len(argv) < 2 else argv[1]
     params = parameters.get_params(task_id)
 
-    print('\nLoading the best model and predicting results on the testing split')
-    print('\tLoading testing dataset:')
+    print('\nLoading the best model and predicting results on the testing split') # 在测试分割上加载最佳模型并预测结果
+    print('\tLoading testing dataset:') # 加载测试数据集
     data_gen_test = cls_data_generator.DataGenerator(
         params=params, split=1, shuffle=False, is_eval=True if params['mode']=='eval' else False
     )
@@ -35,6 +37,7 @@ def main(argv):
     dump_figures = True
 
     # CHOOSE THE MODEL WHOSE OUTPUT YOU WANT TO VISUALIZE 
+    # 选择要可视化其输出的模型
     checkpoint_name = "models/1_1_foa_dev_split6_model.h5"
     model = seldnet_model.SeldModel(data_in, data_out, params)
     model.eval()
@@ -56,6 +59,7 @@ def main(argv):
             target = target.view(target.shape[0], target.shape[1], 3, max_nb_doas).transpose(-1, -2)
 
             # get pair-wise distance matrix between predicted and reference.
+            # 得到预测和参考之间的成对距离矩阵。
             output, target = output.view(-1, output.shape[-2], output.shape[-1]), target.view(-1, target.shape[-2], target.shape[-1])
 
             output = output.cpu().detach().numpy()
