@@ -1,5 +1,6 @@
 #
 # Data generator for training the SELDnet
+# 用于训练SELDnet的数据生成器
 #
 
 import os
@@ -75,10 +76,10 @@ class DataGenerator(object):
         return self._nb_total_batches
 
     def _get_filenames_list_and_feat_label_sizes(self):
-        print('Computing some stats about the dataset')
+        print('Computing some stats about the dataset') # 计算数据集的一些统计数据
         max_frames, total_frames, temp_feat = -1, 0, []
         for filename in os.listdir(self._feat_dir):
-            if int(filename[4]) in self._splits: # check which split the file belongs to
+            if int(filename[4]) in self._splits: # check which split the file belongs to 检查文件属于哪个拆分
                 self._filenames_list.append(filename)
                     
                 temp_feat = np.load(os.path.join(self._feat_dir, filename))
@@ -118,12 +119,16 @@ class DataGenerator(object):
         """
         Generates batches of samples
         :return: 
+
+        生成批次的样本
+        :return: 
         """
         if self._shuffle:
             random.shuffle(self._filenames_list)
 
         # Ideally this should have been outside the while loop. But while generating the test data we want the data
         # to be the same exactly for all epoch's hence we keep it here.
+        # 理想情况下，这应该在while循环之外。但是，在生成测试数据时，我们希望所有历元的数据完全相同，因此我们将其保留在此处。
         self._circ_buf_feat = deque()
         self._circ_buf_label = deque()
 
@@ -132,6 +137,7 @@ class DataGenerator(object):
             for i in range(self._nb_total_batches):
                 # load feat and label to circular buffer. Always maintain atleast one batch worth feat and label in the
                 # circular buffer. If not keep refilling it.
+                # 将壮举和标签加载到循环缓冲区。始终在循环缓冲区中保留至少一批值得完成的任务和标签。如果没有，继续加。
                 while len(self._circ_buf_feat) < self._feature_batch_seq_len:
                     temp_feat = np.load(os.path.join(self._feat_dir, self._filenames_list[file_cnt]))
 
@@ -139,6 +145,7 @@ class DataGenerator(object):
                         self._circ_buf_feat.append(row)
 
                     # If self._per_file is True, this returns the sequences belonging to a single audio recording
+                    # 如果self._per_file为True，则返回属于单个音频录制的序列
                     if self._per_file:
                         extra_frames = self._feature_batch_seq_len - temp_feat.shape[0]
                         extra_feat = np.ones((extra_frames, temp_feat.shape[1])) * 1e-6
@@ -149,12 +156,14 @@ class DataGenerator(object):
                     file_cnt = file_cnt + 1
 
                 # Read one batch size from the circular buffer
+                # 从循环缓冲区读取一个批量大小
                 feat = np.zeros((self._feature_batch_seq_len, self._nb_mel_bins * self._nb_ch))
                 for j in range(self._feature_batch_seq_len):
                     feat[j, :] = self._circ_buf_feat.popleft()
                 feat = np.reshape(feat, (self._feature_batch_seq_len, self._nb_ch, self._nb_mel_bins))
 
                 # Split to sequences
+                # 拆分为序列
                 feat = self._split_in_seqs(feat, self._feature_seq_len)
                 feat = np.transpose(feat, (0, 2, 1, 3))
 
@@ -165,6 +174,7 @@ class DataGenerator(object):
 
                 # load feat and label to circular buffer. Always maintain atleast one batch worth feat and label in the
                 # circular buffer. If not keep refilling it.
+                # 将壮举和标签加载到循环缓冲区。始终在循环缓冲区中保留至少一批值得完成的任务和标签。如果没有，继续加。
                 while len(self._circ_buf_feat) < self._feature_batch_seq_len:
                     temp_feat = np.load(os.path.join(self._feat_dir, self._filenames_list[file_cnt]))
                     temp_label = np.load(os.path.join(self._label_dir, self._filenames_list[file_cnt]))
@@ -182,6 +192,7 @@ class DataGenerator(object):
                         self._circ_buf_label.append(l_row)
                     
                     # If self._per_file is True, this returns the sequences belonging to a single audio recording
+                    # 如果self._per_file为True，则返回属于单个音频录制的序列
                     if self._per_file:
                         feat_extra_frames = self._feature_batch_seq_len - temp_feat.shape[0]
                         extra_feat = np.ones((feat_extra_frames, temp_feat.shape[1])) * 1e-6
@@ -200,6 +211,7 @@ class DataGenerator(object):
                     file_cnt = file_cnt + 1
 
                 # Read one batch size from the circular buffer
+                # 从循环缓冲区读取一个批量大小
                 feat = np.zeros((self._feature_batch_seq_len, self._nb_mel_bins * self._nb_ch))
                 for j in range(self._feature_batch_seq_len):
                     feat[j, :] = self._circ_buf_feat.popleft()
@@ -214,6 +226,7 @@ class DataGenerator(object):
                     for j in range(self._label_batch_seq_len):
                         label[j, :] = self._circ_buf_label.popleft()
                 # Split to sequences
+                # 拆分为序列
                 feat = self._split_in_seqs(feat, self._feature_seq_len)
                 feat = np.transpose(feat, (0, 2, 1, 3))
                 
@@ -262,6 +275,7 @@ class DataGenerator(object):
             tmp = np.zeros((in_shape[0], 1, in_shape[1], in_shape[2], in_shape[3]))
             tmp[:, 0, :, :, :] = data
         else:
+            # 出错则提示：出错：输入应该是一个3D矩阵，但它似乎有尺寸:{}
             print('ERROR: The input should be a 3D matrix but it seems to have dimensions: {}'.format(in_shape))
             exit()
         return tmp
