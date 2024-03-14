@@ -1,5 +1,6 @@
 #
 # A wrapper script that trains the SELDnet. The training stops when the early stopping metric - SELD error stops improving.
+# 一个训练SELDnet的包装器脚本。当早期停止度量-SELD错误停止改进时，训练停止。
 #
 
 import os
@@ -36,6 +37,13 @@ def get_multi_accdoa_labels(accdoa_in, nb_classes):
     Return:
         sedX:       [batch_size, frames, num_class=12]
         doaX:       [batch_size, frames, num_axis*num_class=3*12]
+
+    位置参数：
+        accdoa_in:  [batch_size, frames, num_track*num_axis*num_class=3*3*12]
+        nb_classes: 标量
+    返回：
+        sed的X轴坐标参数：[batch_size, frames, num_class=12]
+        doa的X轴坐标参数：[batch_size, frames, num_axis*num_class=3*12]
     """
     x0, y0, z0 = accdoa_in[:, :, :1*nb_classes], accdoa_in[:, :, 1*nb_classes:2*nb_classes], accdoa_in[:, :, 2*nb_classes:3*nb_classes]
     sed0 = np.sqrt(x0**2 + y0**2 + z0**2) > 0.5
@@ -65,7 +73,9 @@ def determine_similar_location(sed_pred0, sed_pred1, doa_pred0, doa_pred1, class
 
 def test_epoch(data_generator, model, criterion, dcase_output_folder, params, device):
     # Number of frames for a 60 second audio with 100ms hop length = 600 frames
+    # 具有100ms跳长的60秒音频的帧数=600帧
     # Number of frames in one batch (batch_size* sequence_length) consists of all the 600 frames above with zero padding in the remaining frames
+    # 一个批次中的帧数（batch_size*sequence_length）由以上所有600帧组成，其余帧为零填充
     test_filelist = data_generator.get_filelist()
 
     nb_test_batches, test_loss = 0, 0.
@@ -74,9 +84,11 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
     with torch.no_grad():
         for data, target in data_generator.generate():
             # load one batch of data
+            # 加载一批量的数据
             data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
 
-            # process the batch of data based on chosen mode
+            # process the batch of data based on chosen model
+            # 基于所选模型处理一批数据
             output = model(data)
             loss = criterion(output, target)
             if params['multi_accdoa'] is True:
@@ -93,6 +105,7 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                 doa_pred = reshape_3Dto2D(doa_pred)
 
             # dump SELD results to the correspondin file
+            # 将SELD结果转储到相应的文件
             output_file = os.path.join(dcase_output_folder, test_filelist[file_cnt].replace('.npy', '.csv'))
             file_cnt += 1
             output_dict = {}
@@ -100,10 +113,12 @@ def test_epoch(data_generator, model, criterion, dcase_output_folder, params, de
                 for frame_cnt in range(sed_pred0.shape[0]):
                     for class_cnt in range(sed_pred0.shape[1]):
                         # determine whether track0 is similar to track1
+                        # 确定track0是否与track1相似
                         flag_0sim1 = determine_similar_location(sed_pred0[frame_cnt][class_cnt], sed_pred1[frame_cnt][class_cnt], doa_pred0[frame_cnt], doa_pred1[frame_cnt], class_cnt, params['thresh_unify'], params['unique_classes'])
                         flag_1sim2 = determine_similar_location(sed_pred1[frame_cnt][class_cnt], sed_pred2[frame_cnt][class_cnt], doa_pred1[frame_cnt], doa_pred2[frame_cnt], class_cnt, params['thresh_unify'], params['unique_classes'])
                         flag_2sim0 = determine_similar_location(sed_pred2[frame_cnt][class_cnt], sed_pred0[frame_cnt][class_cnt], doa_pred2[frame_cnt], doa_pred0[frame_cnt], class_cnt, params['thresh_unify'], params['unique_classes'])
                         # unify or not unify according to flag
+                        # 根据flag来确定是否统一？unify怎么翻译才准确
                         if flag_0sim1 + flag_1sim2 + flag_2sim0 == 0:
                             if sed_pred0[frame_cnt][class_cnt]>0.5:
                                 if frame_cnt not in output_dict:
@@ -165,10 +180,12 @@ def train_epoch(data_generator, optimizer, model, criterion, params, device):
     model.train()
     for data, target in data_generator.generate():
         # load one batch of data
+        # 加载一批量的数据
         data, target = torch.tensor(data).to(device).float(), torch.tensor(target).to(device).float()
         optimizer.zero_grad()
 
-        # process the batch of data based on chosen mode
+        # process the batch of data based on chosen model
+        # 依照所选的模型来处理一批量的数据
         output = model(data)
         
         loss = criterion(output, target)
@@ -195,17 +212,25 @@ def main(argv):
         second input: job_id - (optional) all the output files will be uniquely represented with this.
                               (default) 1
 
+    用于训练声音事件定位和检测网络的主包装器。
+    ：param argv参数：需要两个可选输入。
+        第一个输入：task_id-（可选）在parameters.py中选择系统配置。
+                    （默认）1-使用默认参数
+        第二个输入：jobid-（可选）所有输出文件都将用这个唯一表示。
+                    （默认）1
     """
+
+    # argv是一个指向字符串数组的指针，每个字符串表示一个命令行参数。
     print(argv)
     if len(argv) != 3:
         print('\n\n')
         print('-------------------------------------------------------------------------------------------------------')
-        print('The code expected two optional inputs')
+        print('The code expected two optional inputs') # 代码需要两个可选输入
         print('\t>> python seld.py <task-id> <job-id>')
-        print('\t\t<task-id> is used to choose the user-defined parameter set from parameter.py')
-        print('Using default inputs for now')
+        print('\t\t<task-id> is used to choose the user-defined parameter set from parameter.py') # <task-id>用于从parameter.py中选择用户定义的参数集
+        print('Using default inputs for now') # 目前使用默认输入
         print('\t\t<job-id> is a unique identifier which is used for output filenames (models, training plots). '
-              'You can use any number or string for this.')
+              'You can use any number or string for this.') # <job-id>是用于输出文件名（模型、训练图）的唯一标识符。您可以为此使用任何数字或字符串。
         print('-------------------------------------------------------------------------------------------------------')
         print('\n\n')
 
@@ -214,12 +239,14 @@ def main(argv):
     torch.autograd.set_detect_anomaly(True)
 
     # use parameter set defined by user
+    # 使用用户定义的参数集
     task_id = '1' if len(argv) < 2 else argv[1]
     params = parameters.get_params(task_id)
 
     job_id = 1 if len(argv) < 3 else argv[-1]
 
     # Training setup
+    # 训练设置
     train_splits, val_splits, test_splits = None, None, None
     if params['mode'] == 'dev':
         if '2020' in params['dataset_dir']:
@@ -243,7 +270,7 @@ def main(argv):
 
 
         else:
-            print('ERROR: Unknown dataset splits')
+            print('ERROR: Unknown dataset splits') # 出错：未知数据集拆分
             exit()
     for split_cnt, split in enumerate(test_splits):
         print('\n\n---------------------------------------------------------------------------------------------------')
@@ -251,6 +278,7 @@ def main(argv):
         print('---------------------------------------------------------------------------------------------------')
 
         # Unique name for the run
+        # 运行的唯一名称
         loc_feat = params['dataset']
         if params['dataset'] == 'mic':
             if params['use_salsalite']:
@@ -267,39 +295,44 @@ def main(argv):
         print("unique_name: {}\n".format(unique_name))
 
         # Load train and validation data
-        print('Loading training dataset:')
+        # 加载列车和验证数据
+        print('Loading training dataset:') #加载训练数据集
         data_gen_train = cls_data_generator.DataGenerator(
             params=params, split=train_splits[split_cnt]
         )
 
-        print('Loading validation dataset:')
+        print('Loading validation dataset:') # 加载验证数据集
         data_gen_val = cls_data_generator.DataGenerator(
             params=params, split=val_splits[split_cnt], shuffle=False, per_file=True
         )
 
         # Collect i/o data size and load model configuration
+        # 收集输入/输出数据大小和加载模型配置
         data_in, data_out = data_gen_train.get_data_sizes()
         model = seldnet_model.SeldModel(data_in, data_out, params).to(device)
         if params['finetune_mode']:
-            print('Running in finetuning mode. Initializing the model to the weights - {}'.format(params['pretrained_model_weights']))
+            print('Running in finetuning mode. Initializing the model to the weights - {}'.format(params['pretrained_model_weights'])) # 在微调模式下运行。将模型初始化为权重-{}
             model.load_state_dict(torch.load(params['pretrained_model_weights'], map_location='cpu'))
 
         print('---------------- SELD-net -------------------')
-        print('FEATURES:\n\tdata_in: {}\n\tdata_out: {}\n'.format(data_in, data_out))
+        print('FEATURES:\n\tdata_in: {}\n\tdata_out: {}\n'.format(data_in, data_out)) # 特征
         print('MODEL:\n\tdropout_rate: {}\n\tCNN: nb_cnn_filt: {}, f_pool_size{}, t_pool_size{}\n, rnn_size: {}\n, nb_attention_blocks: {}\n, fnn_size: {}\n'.format(
             params['dropout_rate'], params['nb_cnn2d_filt'], params['f_pool_size'], params['t_pool_size'], params['rnn_size'], params['nb_self_attn_layers'],
-            params['fnn_size']))
+            params['fnn_size'])) # 模型，dropout脱落率/丢弃率，池化大小，注意力模块，参数
         print(model)
 
         # Dump results in DCASE output format for calculating final scores
+        # 以DCASE输出格式转储结果以计算最终分数
         dcase_output_val_folder = os.path.join(params['dcase_output_dir'], '{}_{}_val'.format(unique_name, strftime("%Y%m%d%H%M%S", gmtime())))
         cls_feature_class.delete_and_create_folder(dcase_output_val_folder)
-        print('Dumping recording-wise val results in: {}'.format(dcase_output_val_folder))
+        print('Dumping recording-wise val results in: {}'.format(dcase_output_val_folder)) # 转储清晰记录值进入：{}
 
         # Initialize evaluation metric class
+        # 初始化评估度量类
         score_obj = ComputeSELDResults(params)
 
         # start training
+        # 开始训练
         best_val_epoch = -1
         best_ER, best_F, best_LE, best_LR, best_seld_scr = 1., 0., 180., 0., 9999 
         patience_cnt = 0
@@ -314,6 +347,7 @@ def main(argv):
         for epoch_cnt in range(nb_epoch):
             # ---------------------------------------------------------------------
             # TRAINING
+            # 训练
             # ---------------------------------------------------------------------
             start_time = time.time()
             train_loss = train_epoch(data_gen_train, optimizer, model, criterion, params, device)
@@ -321,21 +355,25 @@ def main(argv):
 
             # ---------------------------------------------------------------------
             # VALIDATION
+            # 验证
             # ---------------------------------------------------------------------
             start_time = time.time()
             val_loss = test_epoch(data_gen_val, model, criterion, dcase_output_val_folder, params, device)
 
             # Calculate the DCASE 2021 metrics - Location-aware detection and Class-aware localization scores
+            # 计算DCASE 2021指标-位置感知检测和类别感知定位得分
             val_ER, val_F, val_LE, val_LR, val_seld_scr, classwise_val_scr = score_obj.get_SELD_Results(dcase_output_val_folder)
 
             val_time = time.time() - start_time
             
             # Save model if loss is good
+            # 如果损失良好，则保存模型
             if val_seld_scr <= best_seld_scr:
                 best_val_epoch, best_ER, best_F, best_LE, best_LR, best_seld_scr = epoch_cnt, val_ER, val_F, val_LE, val_LR, val_seld_scr
                 torch.save(model.state_dict(), model_name)
 
             # Print stats
+            # 打印统计信息
             print(
                 'epoch: {}, time: {:0.2f}/{:0.2f}, '
                 # 'train_loss: {:0.2f}, val_loss: {:0.2f}, '
@@ -354,32 +392,34 @@ def main(argv):
 
         # ---------------------------------------------------------------------
         # Evaluate on unseen test data
+        # 对看不见的测试数据进行评估
         # ---------------------------------------------------------------------
-        print('Load best model weights')
+        print('Load best model weights') # 加载最佳模型权重
         model.load_state_dict(torch.load(model_name, map_location='cpu'))
 
-        print('Loading unseen test dataset:')
+        print('Loading unseen test dataset:') # 加载看不见的测试数据集
         data_gen_test = cls_data_generator.DataGenerator(
             params=params, split=test_splits[split_cnt], shuffle=False, per_file=True
         )
 
         # Dump results in DCASE output format for calculating final scores
+        # 以DCASE输出格式转储结果以计算最终分数
         dcase_output_test_folder = os.path.join(params['dcase_output_dir'], '{}_{}_test'.format(unique_name, strftime("%Y%m%d%H%M%S", gmtime())))
         cls_feature_class.delete_and_create_folder(dcase_output_test_folder)
-        print('Dumping recording-wise test results in: {}'.format(dcase_output_test_folder))
+        print('Dumping recording-wise test results in: {}'.format(dcase_output_test_folder)) # 转储清晰记录值进入：{}
 
 
         test_loss = test_epoch(data_gen_test, model, criterion, dcase_output_test_folder, params, device)
 
         use_jackknife=True
         test_ER, test_F, test_LE, test_LR, test_seld_scr, classwise_test_scr = score_obj.get_SELD_Results(dcase_output_test_folder, is_jackknife=use_jackknife )
-        print('\nTest Loss')
+        print('\nTest Loss') # 测试损失
         print('SELD score (early stopping metric): {:0.2f} {}'.format(test_seld_scr[0] if use_jackknife else test_seld_scr, '[{:0.2f}, {:0.2f}]'.format(test_seld_scr[1][0], test_seld_scr[1][1]) if use_jackknife else ''))
         print('SED metrics: Error rate: {:0.2f} {}, F-score: {:0.1f} {}'.format(test_ER[0]  if use_jackknife else test_ER, '[{:0.2f}, {:0.2f}]'.format(test_ER[1][0], test_ER[1][1]) if use_jackknife else '', 100* test_F[0]  if use_jackknife else 100* test_F, '[{:0.2f}, {:0.2f}]'.format(100* test_F[1][0], 100* test_F[1][1]) if use_jackknife else ''))
         print('DOA metrics: Localization error: {:0.1f} {}, Localization Recall: {:0.1f} {}'.format(test_LE[0] if use_jackknife else test_LE, '[{:0.2f} , {:0.2f}]'.format(test_LE[1][0], test_LE[1][1]) if use_jackknife else '', 100*test_LR[0]  if use_jackknife else 100*test_LR,'[{:0.2f}, {:0.2f}]'.format(100*test_LR[1][0], 100*test_LR[1][1]) if use_jackknife else ''))
         if params['average']=='macro':
-            print('Classwise results on unseen test data')
-            print('Class\tER\tF\tLE\tLR\tSELD_score')
+            print('Classwise results on unseen test data') # 看不见的测试数据的分类结果
+            print('Class\tER\tF\tLE\tLR\tSELD_score') 类别？的SELD得分
             for cls_cnt in range(params['unique_classes']):
                 print('{}\t{:0.2f} {}\t{:0.2f} {}\t{:0.2f} {}\t{:0.2f} {}\t{:0.2f} {}'.format(
                      cls_cnt,
