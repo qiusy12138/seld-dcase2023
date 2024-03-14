@@ -1,4 +1,6 @@
 # The SELDnet architecture
+# SELDnet 结构
+# 一般是只改这里，因为其他的也不会改，也改不了
 
 import numpy as np
 import torch
@@ -24,40 +26,47 @@ class MSELoss_ADPIT(object):
             target: [batch_size, frames, num_track_dummy=6, num_axis=4, num_class=12]
         Return:
             loss: scalar
+
+        13（=1+6+6）种可能组合的辅助重复排列不变训练
+        Args：
+        输出：[batch_size，frames，num_track*num_axis*num_class=3*3*12]
+        目标:[batch_size, frames，num_track_dummy=6，num_axis=4，num_class=12]
+        返回:
+            损失：标量
         """
-        target_A0 = target[:, :, 0, 0:1, :] * target[:, :, 0, 1:, :]  # A0, no ov from the same class, [batch_size, frames, num_axis(act)=1, num_class=12] * [batch_size, frames, num_axis(XYZ)=3, num_class=12]
-        target_B0 = target[:, :, 1, 0:1, :] * target[:, :, 1, 1:, :]  # B0, ov with 2 sources from the same class
+        target_A0 = target[:, :, 0, 0:1, :] * target[:, :, 0, 1:, :]  # A0, no ov from the same class,A0，没有来自同一类的ov， [batch_size, frames, num_axis(act)=1, num_class=12] * [batch_size, frames, num_axis(XYZ)=3, num_class=12]
+        target_B0 = target[:, :, 1, 0:1, :] * target[:, :, 1, 1:, :]  # B0, ov with 2 sources from the same class，B0，ov，具有来自同一类的2个源
         target_B1 = target[:, :, 2, 0:1, :] * target[:, :, 2, 1:, :]  # B1
-        target_C0 = target[:, :, 3, 0:1, :] * target[:, :, 3, 1:, :]  # C0, ov with 3 sources from the same class
+        target_C0 = target[:, :, 3, 0:1, :] * target[:, :, 3, 1:, :]  # C0, ov with 3 sources from the same class，C0，ov，具有来自同一类的3个源
         target_C1 = target[:, :, 4, 0:1, :] * target[:, :, 4, 1:, :]  # C1
         target_C2 = target[:, :, 5, 0:1, :] * target[:, :, 5, 1:, :]  # C2
 
-        target_A0A0A0 = torch.cat((target_A0, target_A0, target_A0), 2)  # 1 permutation of A (no ov from the same class), [batch_size, frames, num_track*num_axis=3*3, num_class=12]
-        target_B0B0B1 = torch.cat((target_B0, target_B0, target_B1), 2)  # 6 permutations of B (ov with 2 sources from the same class)
+        target_A0A0A0 = torch.cat((target_A0, target_A0, target_A0), 2)  # 1 permutation of A (no ov from the same class), A的1个排列（没有来自同一类的ov），[batch_size, frames, num_track*num_axis=3*3, num_class=12]
+        target_B0B0B1 = torch.cat((target_B0, target_B0, target_B1), 2)  # 6 permutations of B (ov with 2 sources from the same class)，B的6个置换（ov与来自同一类的2个源）
         target_B0B1B0 = torch.cat((target_B0, target_B1, target_B0), 2)
         target_B0B1B1 = torch.cat((target_B0, target_B1, target_B1), 2)
         target_B1B0B0 = torch.cat((target_B1, target_B0, target_B0), 2)
         target_B1B0B1 = torch.cat((target_B1, target_B0, target_B1), 2)
         target_B1B1B0 = torch.cat((target_B1, target_B1, target_B0), 2)
-        target_C0C1C2 = torch.cat((target_C0, target_C1, target_C2), 2)  # 6 permutations of C (ov with 3 sources from the same class)
+        target_C0C1C2 = torch.cat((target_C0, target_C1, target_C2), 2)  # 6 permutations of C (ov with 3 sources from the same class)，C的6个置换（ov与来自同一类的3个源）
         target_C0C2C1 = torch.cat((target_C0, target_C2, target_C1), 2)
         target_C1C0C2 = torch.cat((target_C1, target_C0, target_C2), 2)
         target_C1C2C0 = torch.cat((target_C1, target_C2, target_C0), 2)
         target_C2C0C1 = torch.cat((target_C2, target_C0, target_C1), 2)
         target_C2C1C0 = torch.cat((target_C2, target_C1, target_C0), 2)
 
-        output = output.reshape(output.shape[0], output.shape[1], target_A0A0A0.shape[2], target_A0A0A0.shape[3])  # output is set the same shape of target, [batch_size, frames, num_track*num_axis=3*3, num_class=12]
+        output = output.reshape(output.shape[0], output.shape[1], target_A0A0A0.shape[2], target_A0A0A0.shape[3])  # output is set the same shape of target, 输出设置为与目标形状相同，[batch_size, frames, num_track*num_axis=3*3, num_class=12]
         pad4A = target_B0B0B1 + target_C0C1C2
         pad4B = target_A0A0A0 + target_C0C1C2
         pad4C = target_A0A0A0 + target_B0B0B1
-        loss_0 = self._each_calc(output, target_A0A0A0 + pad4A)  # padded with target_B0B0B1 and target_C0C1C2 in order to avoid to set zero as target
-        loss_1 = self._each_calc(output, target_B0B0B1 + pad4B)  # padded with target_A0A0A0 and target_C0C1C2
+        loss_0 = self._each_calc(output, target_A0A0A0 + pad4A)  # padded with target_B0B0B1 and target_C0C1C2 in order to avoid to set zero as target 填充target_B0B0B1和target_C0C1C2，以避免将零设置为目标
+        loss_1 = self._each_calc(output, target_B0B0B1 + pad4B)  # padded with target_A0A0A0 and target_C0C1C2 填充target_A0A0A0和target_C0C1C2
         loss_2 = self._each_calc(output, target_B0B1B0 + pad4B)
         loss_3 = self._each_calc(output, target_B0B1B1 + pad4B)
         loss_4 = self._each_calc(output, target_B1B0B0 + pad4B)
         loss_5 = self._each_calc(output, target_B1B0B1 + pad4B)
         loss_6 = self._each_calc(output, target_B1B1B0 + pad4B)
-        loss_7 = self._each_calc(output, target_C0C1C2 + pad4C)  # padded with target_A0A0A0 and target_B0B0B1
+        loss_7 = self._each_calc(output, target_C0C1C2 + pad4C)  # padded with target_A0A0A0 and target_B0B0B1 填充target_A0A0A0和target_B0B0B1
         loss_8 = self._each_calc(output, target_C0C2C1 + pad4C)
         loss_9 = self._each_calc(output, target_C1C0C2 + pad4C)
         loss_10 = self._each_calc(output, target_C1C2C0 + pad4C)
@@ -161,7 +170,7 @@ class SeldModel(torch.nn.Module):
         self.fnn_list.append(nn.Linear(params['fnn_size'] if params['nb_fnn_layers'] else self.params['rnn_size'], out_shape[-1], bias=True))
 
     def forward(self, x):
-        """input: (batch_size, mic_channels, time_steps, mel_bins)"""
+        """input输入: (batch_size, mic_channels, time_steps, mel_bins)"""
         for conv_cnt in range(len(self.conv_block_list)):
             x = self.conv_block_list[conv_cnt](x)
 
