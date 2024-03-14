@@ -19,7 +19,7 @@ def main(argv):            # argv保存命令行输入的参数值,argv[0]指向
     # use parameter set defined by user
     # 使用用户定义的参数集，这里的参数集是给定的数据集
     task_id = '1' if len(argv) < 2 else argv[1]
-    params = parameters.get_params(task_id)
+    params = parameters.get_params(task_id) # get_params函数返回的是参数字典，参数组主要包含以下几类参数：数据集参数、特征参数、模型类别、DNN模型参数、指标
 
     # -------------- Extract features and labels for development set -----------------------------
     # -------------- 提取开发集（给定的数据集）的特征和标签 -----------------------------
