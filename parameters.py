@@ -10,9 +10,9 @@ def get_params(argv='1'):
     # ########### default parameters ##############
     # ########### 默认参数 ##############
     params = dict(
-        quick_test=True,     # To do quick test. Trains/test on small subset of dataset, and # of epochs
+        quick_test=True,     # To do quick test. Trains/test on small subset of dataset, and # of epochs 做快速测试。在数据集的小个子集上进行训练/测试，以及迭代数
     
-        finetune_mode = False,  # Finetune on existing model, requires the pretrained model path set - pretrained_model_weights
+        finetune_mode = False,  # Finetune on existing model, requires the pretrained model path set - pretrained_model_weights 对现有模型进行微调，需要预先训练的模型路径集-pretrained_model_weights
         pretrained_model_weights='models/1_1_foa_dev_split6_model.h5',
 
         # INPUT PATH 输入路径
@@ -39,7 +39,7 @@ def get_params(argv='1'):
         max_audio_len_s=60,
         nb_mel_bins=64,
 
-        use_salsalite = False, # Used for MIC dataset only. If true use salsalite features, else use GCC features 仅用于MIC数据集。如果为true，则使用salsalite功能，否则使用GCC功能
+        use_salsalite = False, # Used for MIC dataset only. If true use salsalite features, else use GCC features 仅用于MIC数据集。如果为true，则使用salsalite特征，否则使用GCC特征
         fmin_doa_salsalite = 50,
         fmax_doa_salsalite = 2000,
         fmax_spectra_salsalite = 9000,
@@ -53,7 +53,7 @@ def get_params(argv='1'):
         # DNN模型参数
         label_sequence_length=50,    # Feature sequence length 特征序列长度
         batch_size=128,              # Batch size 批量大小
-        dropout_rate=0.05,           # Dropout rate, constant for all layers 脱落率，每层不变
+        dropout_rate=0.05,           # Dropout rate, constant for all layers 脱落率/丢弃率，每层不变
         nb_cnn2d_filt=64,           # Number of CNN nodes, constant for each layer CNN节点数，每层不变
         f_pool_size=[4, 4, 2],      # CNN frequency pooling, length of list = number of CNN layers, list value = pooling per layer CNN池化频率，列表长度=CNN层数，列表值=每层池
 
@@ -71,68 +71,70 @@ def get_params(argv='1'):
         lr=1e-3,
 
         # METRIC
+        # 指标
         average='macro',        # Supports 'micro': sample-wise average and 'macro': class-wise average 支持“micro”：样本平均值和“macro”：类平均值
         lad_doa_thresh=20
     )
 
     # ########### User defined parameters ##############
     # ########### 用户定义参数 ##############
-    if argv == '1':
+    if argv == '1': # 1表示使用默认参数，但我认为一般不会用到这个
         print("USING DEFAULT PARAMETERS\n") # 使用默认参数
 
-    elif argv == '2':
+    elif argv == '2': # 2表示检测出数据集格式为FOA，并且使用单ACCDOA格式作为输出格式
         print("FOA + ACCDOA\n")
         params['quick_test'] = False
         params['dataset'] = 'foa'
         params['multi_accdoa'] = False
 
-    elif argv == '3':
+    elif argv == '3': # 3表示检测出数据集格式为FOA，并且使用多ACCDOA格式作为输出格式
         print("FOA + multi ACCDOA\n")
         params['quick_test'] = False
         params['dataset'] = 'foa'
         params['multi_accdoa'] = True
 
-    elif argv == '4':
+    elif argv == '4': # 4表示检测出数据集格式为MIC，并且使用GCC特征，使用单ACCDOA格式作为输出格式
         print("MIC + GCC + ACCDOA\n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = False
         params['multi_accdoa'] = False
 
-    elif argv == '5':
+    elif argv == '5': # 5表示检测出数据集格式为MIC，并且使用salsalite特征，使用单ACCDOA格式作为输出格式
         print("MIC + SALSA + ACCDOA\n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = True
         params['multi_accdoa'] = False
 
-    elif argv == '6':
+    elif argv == '6': # 6表示检测出数据集格式为MIC，并且使用GCC特征，使用多ACCDOA格式作为输出格式
         print("MIC + GCC + multi ACCDOA\n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = False
         params['multi_accdoa'] = True
 
-    elif argv == '7':
+    elif argv == '7': # 7表示检测出数据集格式为MIC，并且使用多ACCDOA格式作为输出格式
         print("MIC + SALSA + multi ACCDOA\n")
         params['quick_test'] = False
         params['dataset'] = 'mic'
         params['use_salsalite'] = True
         params['multi_accdoa'] = True
 
-    elif argv == '999':
+    elif argv == '999': # 999表示使用数据集的小个子集上进行训练/测试，做快速测试
         print("QUICK TEST MODE\n")
         params['quick_test'] = True
 
-    else:
-        print('ERROR: unknown argument {}'.format(argv))
+    else: # 报错
+        print('ERROR: unknown argument {}'.format(argv)) # 出错：未知参数
         exit()
 
-    feature_label_resolution = int(params['label_hop_len_s'] // params['hop_len_s'])
+    feature_label_resolution = int(params['label_hop_len_s'] // params['hop_len_s'])  # 为什么要有这个呢？这用来干什么
     params['feature_sequence_length'] = params['label_sequence_length'] * feature_label_resolution
-    params['t_pool_size'] = [feature_label_resolution, 1, 1]     # CNN time pooling
-    params['patience'] = int(params['nb_epochs'])     # Stop training if patience is reached
+    params['t_pool_size'] = [feature_label_resolution, 1, 1]     # CNN time pooling CNN时间池
+    params['patience'] = int(params['nb_epochs'])     # Stop training if patience is reached 如果达到最大迭代次数，则停止训练
 
+    # 根据不同年份的数据集来确定声音事件类别的数量
     if '2020' in params['dataset_dir']:
         params['unique_classes'] = 14 
     elif '2021' in params['dataset_dir']:
