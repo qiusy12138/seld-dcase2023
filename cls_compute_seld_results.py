@@ -20,6 +20,17 @@ def jackknife_estimation(global_value, partial_estimates, significance_level=0.0
     bias: Bias computed between global value and the partial estimates
     std_err: Standard deviation of partial estimates
     conf_interval: Confidence interval obtained after t-test
+
+    根据全局值和部分估计值计算jackknife统计数据。
+    Nicolas Turpault原创功能
+    ：param global_value：使用所有（N）个示例计算的值
+    ：param partial_estimates：一次使用N-1个示例的部分估计
+    ：param significance_level：用于t检验的显著性值
+    : return:
+    估计：使用部分估计的估计值
+    偏差：在全局值和部分估计值之间计算的偏差
+    std_err：部分估计的标准偏差
+    conf_interval：t检验后的置信区间
     """
 
     mean_jack_stat = np.mean(partial_estimates)
@@ -31,9 +42,11 @@ def jackknife_estimation(global_value, partial_estimates, significance_level=0.0
     )
 
     # bias-corrected "jackknifed estimate"
+    # 偏差校正的“jacknifed估计”
     estimate = global_value - bias
 
     # jackknife confidence interval
+    # jacknifer置信区间
     if not (0 < significance_level < 1):
         raise ValueError("confidence level must be in (0, 1).")
 
@@ -53,9 +66,11 @@ class ComputeSELDResults(object):
         self._doa_thresh = params['lad_doa_thresh']
 
         # Load feature class
+        # 加载特征类别
         self._feat_cls = cls_feature_class.FeatureClass(params)
         
         # collect reference files
+        # 收集参考文件
         self._ref_labels = {}
         for split in os.listdir(self._desc_dir):      
             for ref_file in os.listdir(os.path.join(self._desc_dir, split)):
@@ -81,6 +96,14 @@ class ComputeSELDResults(object):
         :param file_list: complete list of predicted files
         :param tag: Supports two tags 'all', 'ir'
         :return: Subset of files according to chosen tag
+
+        给定file_list，此函数返回与标记对应的文件子集。
+        支持的标记
+        'all' -
+        'ir'
+        ：param file_list：预测文件的完整列表
+        ：param tag:支持两个标记'all'和'ir'
+        ：return：根据所选标记的文件子集
         '''
         _group_ind = {'room': 10}
         _cnt_dict = {}
@@ -99,20 +122,24 @@ class ComputeSELDResults(object):
 
     def get_SELD_Results(self, pred_files_path, is_jackknife=False):
         # collect predicted files info
+        # 收集预测文件信息
         pred_files = os.listdir(pred_files_path)
         pred_labels_dict = {}
         eval = SELD_evaluation_metrics.SELDMetrics(nb_classes=self._feat_cls.get_nb_classes(), doa_threshold=self._doa_thresh, average=self._average)
         for pred_cnt, pred_file in enumerate(pred_files):
             # Load predicted output format file
+            # 加载预测输出格式文件
             pred_dict = self._feat_cls.load_output_format_file(os.path.join(pred_files_path, pred_file))
             if self._use_polar_format:
                 pred_dict = self._feat_cls.convert_output_format_cartesian_to_polar(pred_dict)
             pred_labels = self._feat_cls.segment_labels(pred_dict, self._ref_labels[pred_file][1])
             # Calculated scores
+            # 评估得分
             eval.update_seld_scores(pred_labels, self._ref_labels[pred_file][0])
             if is_jackknife:
                 pred_labels_dict[pred_file] = pred_labels
         # Overall SED and DOA scores
+        # SED和DOA总得分
         ER, F, LE, LR, seld_scr, classwise_results = eval.compute_seld_scores()
 
         if is_jackknife:
@@ -121,12 +148,14 @@ class ComputeSELDResults(object):
                 global_values.extend(classwise_results.reshape(-1).tolist())
             partial_estimates = []
             # Calculate partial estimates by leave-one-out method
+            # 用漏一法计算部分估计
             for leave_file in pred_files:
                 leave_one_out_list = pred_files[:]
                 leave_one_out_list.remove(leave_file)
                 eval = SELD_evaluation_metrics.SELDMetrics(nb_classes=self._feat_cls.get_nb_classes(), doa_threshold=self._doa_thresh, average=self._average)
                 for pred_cnt, pred_file in enumerate(leave_one_out_list):
                     # Calculated scores
+                    #评估得分
                     eval.update_seld_scores(pred_labels_dict[pred_file], self._ref_labels[pred_file][0])
                 ER, F, LE, LR, seld_scr, classwise_results = eval.compute_seld_scores()
                 leave_one_out_est = [ER, F, LE, LR, seld_scr]
@@ -134,6 +163,7 @@ class ComputeSELDResults(object):
                     leave_one_out_est.extend(classwise_results.reshape(-1).tolist())
 
                 # Overall SED and DOA scores
+                # SED和DOA总得分
                 partial_estimates.append(leave_one_out_est)
             partial_estimates = np.array(partial_estimates)
                     
@@ -155,10 +185,14 @@ class ComputeSELDResults(object):
             ;score_type_list: Supported
                 'all' - all the predicted files
                 'room' - for individual rooms
-
+            获取所有类别的结果。
+            ;score_type_list:支持
+                'all'-所有预测的文件
+                'room'-适用于单独的房间
         '''
 
         # collect predicted files info
+        # 收集预测的文件信息
         pred_files = os.listdir(pred_files_path)
         nb_pred_files = len(pred_files)
 
@@ -174,17 +208,21 @@ class ComputeSELDResults(object):
 
             split_cnt_dict = self.get_nb_files(pred_files, tag=score_type) # collect files corresponding to score_type
             # Calculate scores across files for a given score_type
+            # 计算给定score_type的文件间得分
             for split_key in np.sort(list(split_cnt_dict)):
                 # Load evaluation metric class
+                # 加载评估指标类别
                 eval = SELD_evaluation_metrics.SELDMetrics(nb_classes=self._feat_cls.get_nb_classes(), doa_threshold=self._doa_thresh, average=self._average)
                 for pred_cnt, pred_file in enumerate(split_cnt_dict[split_key]):
                     # Load predicted output format file
+                    # 加载预测输出格式文件
                     pred_dict = self._feat_cls.load_output_format_file(os.path.join(pred_output_format_files, pred_file))
                     if self._use_polar_format:
                         pred_dict = self._feat_cls.convert_output_format_cartesian_to_polar(pred_dict)
                     pred_labels = self._feat_cls.segment_labels(pred_dict, self._ref_labels[pred_file][1])
 
                     # Calculated scores
+                    # 评估得分
                     eval.update_seld_scores(pred_labels, self._ref_labels[pred_file][0])
 
                 # Overall SED and DOA scores
@@ -224,5 +262,6 @@ classwise_test_scr[0][4][cls_cnt] if use_jackknife else classwise_test_scr[4][cl
 
 
     # UNCOMMENT to Compute DCASE results along with room-wise performance
+    # 取消计算DCASE结果以及房间性能
     # score_obj.get_consolidated_SELD_results(pred_output_format_files)
 
