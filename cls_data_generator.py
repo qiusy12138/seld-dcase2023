@@ -11,7 +11,7 @@ from collections import deque
 import random
 
 
-class DataGenerator(object):
+class DataGenerator(object): # 数据生成器类
     def __init__(
             self, params, split=1, shuffle=True, per_file=False, is_eval=False
     ):
@@ -61,7 +61,7 @@ class DataGenerator(object):
             )
         )
 
-    def get_data_sizes(self):
+    def get_data_sizes(self): # 获取数据的大小
         feat_shape = (self._batch_size, self._nb_ch, self._feature_seq_len, self._nb_mel_bins)
         if self._is_eval:
             label_shape = None
@@ -70,12 +70,12 @@ class DataGenerator(object):
                 label_shape = (self._batch_size, self._label_seq_len, self._nb_classes*3*3)
             else:
                 label_shape = (self._batch_size, self._label_seq_len, self._nb_classes*3)
-        return feat_shape, label_shape
+        return feat_shape, label_shape # 返回数据的标签形状和特征形状
 
-    def get_total_batches_in_data(self):
+    def get_total_batches_in_data(self): # 获取数据中的总批量大小
         return self._nb_total_batches
 
-    def _get_filenames_list_and_feat_label_sizes(self):
+    def _get_filenames_list_and_feat_label_sizes(self): # 获取文件名列表和特征、标签的大小
         print('Computing some stats about the dataset') # 计算数据集的一些统计数据
         max_frames, total_frames, temp_feat = -1, 0, []
         for filename in os.listdir(self._feat_dir):
@@ -91,7 +91,7 @@ class DataGenerator(object):
             self._nb_frames_file = max_frames if self._per_file else temp_feat.shape[0]
             self._nb_ch = temp_feat.shape[1] // self._nb_mel_bins
         else:
-            print('Loading features failed')
+            print('Loading features failed') # 加载特征失败
             exit()
 
         if not self._is_eval:
@@ -106,6 +106,7 @@ class DataGenerator(object):
 
         if self._per_file:
             self._batch_size = int(np.ceil(max_frames/float(self._feature_seq_len)))
+            # 警告：正在将批大小重置为｛｝。为了适应单个批次中｛｝帧的最长文件的推断
             print('\tWARNING: Resetting batch size to {}. To accommodate the inference of longest file of {} frames in a single batch'.format(self._batch_size, max_frames))
             self._nb_total_batches = len(self._filenames_list)
         else:
@@ -115,7 +116,7 @@ class DataGenerator(object):
         self._label_batch_seq_len = self._batch_size*self._label_seq_len
         return
 
-    def generate(self):
+    def generate(self): # 生成
         """
         Generates batches of samples
         :return: 
@@ -240,7 +241,7 @@ class DataGenerator(object):
 
                 yield feat, label
 
-    def _split_in_seqs(self, data, _seq_len):
+    def _split_in_seqs(self, data, _seq_len): # 划分为序列
         if len(data.shape) == 1:
             if data.shape[0] % _seq_len:
                 data = data[:-(data.shape[0] % _seq_len), :]
@@ -258,12 +259,12 @@ class DataGenerator(object):
                 data = data[:-(data.shape[0] % _seq_len), :, :, :]
             data = data.reshape((data.shape[0] // _seq_len, _seq_len, data.shape[1], data.shape[2], data.shape[3]))
         else:
-            print('ERROR: Unknown data dimensions: {}'.format(data.shape))
+            print('ERROR: Unknown data dimensions: {}'.format(data.shape)) # 出错：未知数据维度
             exit()
         return data
 
     @staticmethod
-    def split_multi_channels(data, num_channels):
+    def split_multi_channels(data, num_channels): # 划分多维通道
         tmp = None
         in_shape = data.shape
         if len(in_shape) == 3:
@@ -280,26 +281,26 @@ class DataGenerator(object):
             exit()
         return tmp
 
-    def get_nb_classes(self):
+    def get_nb_classes(self): # 获取数据集的声音事件类别总数
         return self._nb_classes
 
-    def nb_frames_1s(self):
+    def nb_frames_1s(self): # 获取1s长的帧
         return self._feat_cls.nb_frames_1s()
 
-    def get_hop_len_sec(self):
+    def get_hop_len_sec(self): # 获取什么？没看出来hop是什么意思
         return self._feat_cls.get_hop_len_sec()
 
-    def get_filelist(self):
+    def get_filelist(self): # 获取文件目录列表
         return self._filenames_list
 
-    def get_frame_per_file(self):
+    def get_frame_per_file(self): # 获取帧文件
         return self._label_batch_seq_len
 
-    def get_nb_frames(self):
+    def get_nb_frames(self): # 获取数据集的帧数据
         return self._feat_cls.get_nb_frames()
     
-    def get_data_gen_mode(self):
+    def get_data_gen_mode(self): # 判断数据集的类别：训练集dev还是测试集eval
         return self._is_eval
 
-    def write_output_format_file(self, _out_file, _out_dict):
+    def write_output_format_file(self, _out_file, _out_dict): # 写入输出格式文件
         return self._feat_cls.write_output_format_file(_out_file, _out_dict)
