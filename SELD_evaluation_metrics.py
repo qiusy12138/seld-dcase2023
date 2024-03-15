@@ -22,7 +22,7 @@ from scipy.optimize import linear_sum_assignment
 from IPython import embed
 
 
-class SELDMetrics(object):
+class SELDMetrics(object): # SELD指标类
     def __init__(self, doa_threshold=20, nb_classes=11, average='macro'):
         '''
             This class implements both the class-sensitive localization and location-sensitive detection metrics.
@@ -33,7 +33,7 @@ class SELDMetrics(object):
 
             这个类实现了类敏感的定位和位置敏感的检测度量。
             此外，基于用户输入，在分段内执行相应的平均。
-        ：param nb_classes：声音类的数量。在本文中，nb_classe=11
+        ：param nb_classes：声音事件类别的总数。在本文中，nb_classe=11
         ：param doa_thresh：位置敏感检测的doa阈值。
         '''
         self._nb_classes = nb_classes
@@ -54,7 +54,7 @@ class SELDMetrics(object):
         self._I = 0
 
         # Variables for Class-sensitive localization performance
-        # 类敏感本地化性能的变量
+        # 类敏感定位性能的变量
         self._total_DE = np.zeros(self._nb_classes)
 
         self._DE_TP = np.zeros(self._nb_classes)
@@ -63,7 +63,7 @@ class SELDMetrics(object):
 
         self._average = average
 
-    def early_stopping_metric(self, _er, _f, _le, _lr):
+    def early_stopping_metric(self, _er, _f, _le, _lr): # 早停指标
         """
         Compute early stopping metric from sed and doa errors.
 
@@ -84,7 +84,7 @@ class SELDMetrics(object):
         ], 0)
         return seld_metric
 
-    def compute_seld_scores(self):
+    def compute_seld_scores(self): # 计算SELD的得分
         '''
         Collect the final SELD scores
 
@@ -124,7 +124,7 @@ class SELDMetrics(object):
             F, LE, LR, SELD_scr = F.mean(), LE.mean(), LR.mean(), SELD_scr.mean()
         return ER, F, LE, LR, SELD_scr, classwise_results
 
-    def update_seld_scores(self, pred, gt):
+    def update_seld_scores(self, pred, gt): # 更新SELD的得分
         '''
         Implements the spatial error averaging according to equation 5 in the paper [1] (see papers in the title of the code).
         Adds the multitrack extensions proposed in paper [2]
@@ -247,7 +247,7 @@ class SELDMetrics(object):
         return
 
 
-def distance_between_spherical_coordinates_rad(az1, ele1, az2, ele2):
+def distance_between_spherical_coordinates_rad(az1, ele1, az2, ele2): # 球坐标之间的角距离
     """
     Angular distance between two spherical coordinates
     MORE: https://en.wikipedia.org/wiki/Great-circle_distance
@@ -266,7 +266,7 @@ def distance_between_spherical_coordinates_rad(az1, ele1, az2, ele2):
     return dist
 
 
-def distance_between_cartesian_coordinates(x1, y1, z1, x2, y2, z2):
+def distance_between_cartesian_coordinates(x1, y1, z1, x2, y2, z2): #  两个笛卡尔坐标之间的角距离
     """
     Angular distance between two cartesian coordinates
     MORE: https://en.wikipedia.org/wiki/Great-circle_distance
@@ -293,7 +293,7 @@ def distance_between_cartesian_coordinates(x1, y1, z1, x2, y2, z2):
     return dist
 
 
-def least_distance_between_gt_pred(gt_list, pred_list):
+def least_distance_between_gt_pred(gt_list, pred_list): # 两组DOA坐标之间的最短距离
     """
         Shortest distance between two sets of DOA coordinates. Given a set of groundtruth coordinates,
         and its respective predicted coordinates, we calculate the distance between each of the
