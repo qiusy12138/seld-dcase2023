@@ -29,7 +29,7 @@ class FeatureClass:
         :param is_eval: if True, does not load dataset labels.
 
         ：param params参数：参数字典
-        ：param is_eval参数评估：如果为True，则不加载数据集标签。
+        ：param is_eval参数是否为评估集：如果为True，则不加载数据集标签。
         """
 
         # Input directories
@@ -48,6 +48,7 @@ class FeatureClass:
         self._feat_dir_norm = None
 
         # Local parameters
+        # 局部参数
         self._is_eval = is_eval
 
         self._fs = params['fs']
@@ -70,6 +71,7 @@ class FeatureClass:
         self._use_salsalite = params['use_salsalite']
         if self._use_salsalite and self._dataset=='mic':
             # Initialize the spatial feature constants
+            # 初始化空间特征常量
             self._lower_bin = np.int(np.floor(params['fmin_doa_salsalite'] * self._nfft / np.float(self._fs)))
             self._lower_bin = np.max((1, self._lower_bin))
             self._upper_bin = np.int(np.floor(np.min((params['fmax_doa_salsalite'], self._fs//2)) * self._nfft / np.float(self._fs)))
@@ -84,6 +86,7 @@ class FeatureClass:
             self._freq_vector = self._freq_vector[None, :, None]  # 1 x n_bins x 1 
 
             # Initialize spectral feature constants
+            # 初始化光谱特征常数
             self._cutoff_bin = np.int(np.floor(params['fmax_spectra_salsalite'] * self._nfft / np.float(self._fs)))
             assert self._upper_bin <= self._cutoff_bin, 'Upper bin for doa featurei {} is higher than cutoff bin for spectrogram {}!'.format()
             self._nb_mel_bins = self._cutoff_bin-self._lower_bin 
@@ -91,11 +94,12 @@ class FeatureClass:
             self._nb_mel_bins = params['nb_mel_bins']
             self._mel_wts = librosa.filters.mel(sr=self._fs, n_fft=self._nfft, n_mels=self._nb_mel_bins).T
         # Sound event classes dictionary
+        # 声音事件类别字典
         self._nb_unique_classes = params['unique_classes']
 
         self._filewise_frames = {}
 
-    def get_frame_stats(self):
+    def get_frame_stats(self):    # 获取帧的统计信息
 
         if len(self._filewise_frames)!=0:
             return
@@ -114,7 +118,7 @@ class FeatureClass:
                 self._filewise_frames[file_name.split('.')[0]] = [nb_feat_frames, nb_label_frames]
         return
 
-    def _load_audio(self, audio_path):
+    def _load_audio(self, audio_path): # 加载音频数据
         fs, audio = wav.read(audio_path)
         audio = audio[:, :self._nb_channels] / 32768.0 + self._eps
         return audio, fs
@@ -125,7 +129,7 @@ class FeatureClass:
     def _next_greater_power_of_2(x):
         return 2 ** (x - 1).bit_length()
 
-    def _spectrogram(self, audio_input, _nb_frames):
+    def _spectrogram(self, audio_input, _nb_frames): # 频谱图
         _nb_ch = audio_input.shape[1]
         nb_bins = self._nfft // 2
         spectra = []
@@ -135,7 +139,7 @@ class FeatureClass:
             spectra.append(stft_ch[:, :_nb_frames])
         return np.array(spectra).T
 
-    def _get_mel_spectrogram(self, linear_spectra):
+    def _get_mel_spectrogram(self, linear_spectra): # 获取对数梅尔频谱图
         mel_feat = np.zeros((linear_spectra.shape[0], self._nb_mel_bins, linear_spectra.shape[-1]))
         for ch_cnt in range(linear_spectra.shape[-1]):
             mag_spectra = np.abs(linear_spectra[:, :, ch_cnt])**2
@@ -143,9 +147,9 @@ class FeatureClass:
             log_mel_spectra = librosa.power_to_db(mel_spectra)
             mel_feat[:, :, ch_cnt] = log_mel_spectra
         mel_feat = mel_feat.transpose((0, 2, 1)).reshape((linear_spectra.shape[0], -1))
-        return mel_feat
+        return mel_feat # 返回对数梅尔频谱图特征
 
-    def _get_foa_intensity_vectors(self, linear_spectra):
+    def _get_foa_intensity_vectors(self, linear_spectra): # 获取foa强度矢量
         W = linear_spectra[:, :, 0]
         I = np.real(np.conj(W)[:, :, np.newaxis] * linear_spectra[:, :, 1:])
         E = self._eps + (np.abs(W)**2 + ((np.abs(linear_spectra[:, :, 1:])**2).sum(-1))/3.0 )
@@ -156,9 +160,9 @@ class FeatureClass:
         if np.isnan(foa_iv).any():
             print('Feature extraction is generating nan outputs')
             exit()
-        return foa_iv
+        return foa_iv # 返回foa的iv特征
 
-    def _get_gcc(self, linear_spectra):
+    def _get_gcc(self, linear_spectra): # 获取gcc特征
         gcc_channels = nCr(linear_spectra.shape[-1], 2)
         gcc_feat = np.zeros((linear_spectra.shape[0], self._nb_mel_bins, gcc_channels))
         cnt = 0
@@ -171,7 +175,7 @@ class FeatureClass:
                 cnt += 1
         return gcc_feat.transpose((0, 2, 1)).reshape((linear_spectra.shape[0], -1))
 
-    def _get_salsalite(self, linear_spectra):
+    def _get_salsalite(self, linear_spectra): # 获取salsalite特征
         # Adapted from the official SALSA repo- https://github.com/thomeou/SALSA
         # 改编自SALSA官方回复-https://github.com/thomeou/SALSA
         # spatial features
@@ -192,7 +196,7 @@ class FeatureClass:
         
         return np.concatenate((linear_spectra, phase_vector), axis=-1) 
 
-    def _get_spectrogram_for_file(self, audio_filename):
+    def _get_spectrogram_for_file(self, audio_filename): # 从文件中获取频谱图
         audio_in, fs = self._load_audio(audio_filename)
          
         nb_feat_frames = int(len(audio_in) / float(self._hop_len))
@@ -200,10 +204,11 @@ class FeatureClass:
         self._filewise_frames[os.path.basename(audio_filename).split('.')[0]] = [nb_feat_frames, nb_label_frames]
 
         audio_spec = self._spectrogram(audio_in, nb_feat_frames)
-        return audio_spec
+        return audio_spec # 返回原始音频数据的频谱图
 
     # OUTPUT LABELS
-    def get_labels_for_file(self, _desc_file, _nb_label_frames):
+    # 输出标签
+    def get_labels_for_file(self, _desc_file, _nb_label_frames): # 从文件中获取标签
         """
         Reads description file and returns classification based SED labels and regression based DOA labels
 
@@ -236,7 +241,8 @@ class FeatureClass:
         return label_mat
 
     # OUTPUT LABELS
-    def get_adpit_labels_for_file(self, _desc_file, _nb_label_frames):
+    # 输出标签
+    def get_adpit_labels_for_file(self, _desc_file, _nb_label_frames): # 从文件中获取重复排列的标签
         """
         Reads description file and returns classification based SED labels and regression based DOA labels
         for multi-ACCDOA with Auxiliary Duplicating Permutation Invariant Training (ADPIT)
@@ -349,19 +355,19 @@ class FeatureClass:
     # ------------------------------- EXTRACT FEATURE AND PREPROCESS IT -------------------------------
     # ------------------------------- 提取特征并对其进行预处理 -------------------------------
 
-    def extract_file_feature(self, _arg_in):
+    def extract_file_feature(self, _arg_in): # 提取文件特征
                 _file_cnt, _wav_path, _feat_path = _arg_in
                 spect = self._get_spectrogram_for_file(_wav_path)
 
                 #extract mel
-                #提取mel
+                #提取mel特征
                 if not self._use_salsalite:
                     mel_spect = self._get_mel_spectrogram(spect)
 
                 feat = None
                 if self._dataset == 'foa':
                     # extract intensity vectors
-                    # 提取强度矢量
+                    # 提取强度矢量，iv特征
                     foa_iv = self._get_foa_intensity_vectors(spect)
                     feat = np.concatenate((mel_spect, foa_iv), axis=-1)
                 elif self._dataset == 'mic':
@@ -380,7 +386,7 @@ class FeatureClass:
                     print('{}: {}, {}'.format(_file_cnt, os.path.basename(_wav_path), feat.shape ))
                     np.save(_feat_path, feat)
 
-    def extract_all_feature(self):
+    def extract_all_feature(self): # 提取所有特征
         # setting up folders
         # 设置文件夹
         self._feat_dir = self.get_unnormalized_feat_dir()
@@ -408,7 +414,7 @@ class FeatureClass:
 #            pool.join()
         print(time.time()-start_s)
 
-    def preprocess_features(self):
+    def preprocess_features(self): # 预处理特征
         # Setting up folders and filenames
         # 设置文件夹和文件名
         self._feat_dir = self.get_unnormalized_feat_dir()
@@ -418,6 +424,7 @@ class FeatureClass:
         spec_scaler = None
 
         # pre-processing starts
+        # 预处理开始
         if self._is_eval:
             spec_scaler = joblib.load(normalized_features_wts_file)
             print('Normalized_features_wts_file: {}. Loaded.'.format(normalized_features_wts_file))
@@ -454,7 +461,7 @@ class FeatureClass:
 
     # ------------------------------- EXTRACT LABELS AND PREPROCESS IT -------------------------------
     # ------------------------------- 提取标签并对其进行预处理 -------------------------------
-    def extract_all_labels(self):
+    def extract_all_labels(self): # 提取所有标签
         self.get_frame_stats()
         self._label_dir = self.get_label_dir()
 
@@ -478,7 +485,7 @@ class FeatureClass:
 
     # -------------------------------  DCASE OUTPUT  FORMAT FUNCTIONS -------------------------------
     # -------------------------------  DCASE输出格式函数 -------------------------------
-    def load_output_format_file(self, _output_format_file):
+    def load_output_format_file(self, _output_format_file): # 加载所有输出格式文件
         """
         Loads DCASE output format csv file and returns it in dictionary format
 
@@ -506,7 +513,7 @@ class FeatureClass:
         _fid.close()
         return _output_dict
 
-    def write_output_format_file(self, _output_format_file, _output_format_dict):
+    def write_output_format_file(self, _output_format_file, _output_format_dict): # 写入输出格式文件
         """
         Writes DCASE output format csv file, given output format dictionary
 
@@ -527,7 +534,7 @@ class FeatureClass:
                 _fid.write('{},{},{},{},{},{},{}\n'.format(int(_frame_ind), int(_value[0]), 0, float(_value[1]), float(_value[2]), float(_value[3]), 0))
         _fid.close()
 
-    def segment_labels(self, _pred_dict, _max_frames):
+    def segment_labels(self, _pred_dict, _max_frames): # 划分标签
         '''
             Collects class-wise sound event location information in segments of length 1s from reference dataset
         :param _pred_dict: Dictionary containing frame-wise sound event time and location information. Output of SELD method
@@ -578,7 +585,7 @@ class FeatureClass:
 
         return output_dict
 
-    def regression_label_format_to_output_format(self, _sed_labels, _doa_labels):
+    def regression_label_format_to_output_format(self, _sed_labels, _doa_labels): # 回归（？）标签格式到输出形式
         """
         Converts the sed (classification) and doa labels predicted in regression format to dcase output format.
 
@@ -616,7 +623,7 @@ class FeatureClass:
                         _output_dict[_frame_ind].append([_tmp_class, _x[_frame_ind, _tmp_class], _y[_frame_ind, _tmp_class], _z[_frame_ind, _tmp_class]])
         return _output_dict
 
-    def convert_output_format_polar_to_cartesian(self, in_dict):
+    def convert_output_format_polar_to_cartesian(self, in_dict): # 将输出格式极坐标转换为笛卡尔坐标
         out_dict = {}
         for frame_cnt in in_dict.keys():
             if frame_cnt not in out_dict:
@@ -633,7 +640,7 @@ class FeatureClass:
                     out_dict[frame_cnt].append([tmp_val[0], tmp_val[1], x, y, z])
         return out_dict
 
-    def convert_output_format_cartesian_to_polar(self, in_dict):
+    def convert_output_format_cartesian_to_polar(self, in_dict): # 将输出格式笛卡尔转换为极坐标
         out_dict = {}
         for frame_cnt in in_dict.keys():
             if frame_cnt not in out_dict:
@@ -651,19 +658,19 @@ class FeatureClass:
     # ------------------------------- Misc public functions -------------------------------
     # ------------------------------- 其他公共函数 -------------------------------
 
-    def get_normalized_feat_dir(self):
+    def get_normalized_feat_dir(self): # 获取标准化特征的位置
         return os.path.join(
             self._feat_label_dir,
             '{}_norm'.format('{}_salsa'.format(self._dataset_combination) if (self._dataset=='mic' and self._use_salsalite) else self._dataset_combination)
         )
 
-    def get_unnormalized_feat_dir(self):
+    def get_unnormalized_feat_dir(self): # 获取未标准化特征的位置
         return os.path.join(
             self._feat_label_dir,
             '{}'.format('{}_salsa'.format(self._dataset_combination) if (self._dataset=='mic' and self._use_salsalite) else self._dataset_combination)
         )
 
-    def get_label_dir(self):
+    def get_label_dir(self): # 获取标签位置
         if self._is_eval:
             return None
         else:
@@ -672,19 +679,19 @@ class FeatureClass:
                '{}_label'.format('{}_adpit'.format(self._dataset_combination) if self._multi_accdoa else self._dataset_combination)
         )
 
-    def get_normalized_wts_file(self):
+    def get_normalized_wts_file(self): # 获取标准化的wts的文件
         return os.path.join(
             self._feat_label_dir,
             '{}_wts'.format(self._dataset)
         )
 
-    def get_nb_channels(self):
+    def get_nb_channels(self): # 获取数据的通道
         return self._nb_channels
 
-    def get_nb_classes(self):
+    def get_nb_classes(self): # 获取数据的类别总数
         return self._nb_unique_classes
 
-    def nb_frames_1s(self):
+    def nb_frames_1s(self): # 获取数据的1s的帧
         return self._nb_label_frames_1s
 
     def get_hop_len_sec(self):
@@ -694,12 +701,12 @@ class FeatureClass:
         return self._nb_mel_bins
 
 
-def create_folder(folder_name):
+def create_folder(folder_name): # 创建文件夹
     if not os.path.exists(folder_name):
         print('{} folder does not exist, creating it.'.format(folder_name))
         os.makedirs(folder_name)
 
-def delete_and_create_folder(folder_name):
+def delete_and_create_folder(folder_name): # 删除文件夹
     if os.path.exists(folder_name) and os.path.isdir(folder_name):
         shutil.rmtree(folder_name)
     os.makedirs(folder_name, exist_ok=True)
