@@ -10,7 +10,7 @@ import math
 from IPython import embed
 
 
-class MSELoss_ADPIT(object):
+class MSELoss_ADPIT(object): # 辅助重复排列不变训练，但我没看懂
     def __init__(self):
         super().__init__()
         self._each_loss = nn.MSELoss(reduction='none')
@@ -106,22 +106,32 @@ class MSELoss_ADPIT(object):
         return loss
 
 
-class ConvBlock(nn.Module):
+class ConvBlock(nn.Module): # 卷积模块
     def __init__(self, in_channels, out_channels, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)):
-        super().__init__()
+        super().__init__() # 继承父类
+        '''
+        Conv2d表示二维输入的卷积:
+            in_channels：网络输入的通道数。
+            out_channels：网络输出的通道数。
+            kernel_size：卷积核的大小，如果该参数是一个整数q，那么卷积核的大小是qXq。
+            stride：步长。是卷积过程中移动的步长。默认情况下是1。一般卷积核在输入图像上的移动是自左至右，自上至下。如果参数是一个整数那么就默认在水平和垂直方向都是该整数。如果参数是stride=(2, 1),2代表着高（h）进行步长为2，1代表着宽（w）进行步长为1。
+            padding：填充，默认是0填充。
+        '''
         self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+        # 对输入的四维数组进行批量标准化处理
         self.bn = nn.BatchNorm2d(out_channels)
 
-    def forward(self, x):
+    def forward(self, x): # 前馈网络
         x = F.relu(self.bn(self.conv(x)))
         return x
 
 
-class PositionalEmbedding(nn.Module):  # Not used in the baseline
+class PositionalEmbedding(nn.Module):  # Not used in the baseline，未在baseline中使用，位置嵌入/位置集成？
     def __init__(self, d_model, max_len=512):
-        super().__init__()
+        super().__init__() # 继承父类
 
         # Compute the positional encodings once in log space.
+        # 在日志空间中计算一次位置编码。
         pe = torch.zeros(max_len, d_model).float()
         pe.require_grad = False
 
@@ -134,15 +144,15 @@ class PositionalEmbedding(nn.Module):  # Not used in the baseline
         pe = pe.unsqueeze(0)
         self.register_buffer('pe', pe)
 
-    def forward(self, x):
+    def forward(self, x): # 前馈网络
         return self.pe[:, :x.size(1)]
 
 
-class SeldModel(torch.nn.Module):
+class SeldModel(torch.nn.Module): # SELD模型
     def __init__(self, in_feat_shape, out_shape, params):
-        super().__init__()
-        self.nb_classes = params['unique_classes']
-        self.params=params
+        super().__init__() # 继承父类
+        self.nb_classes = params['unique_classes'] # 获取数据集中声音事件的类别总数
+        self.params=params # 获取数据的数据集参数、特征参数等等
         self.conv_block_list = nn.ModuleList()
         if len(params['f_pool_size']):
             for conv_cnt in range(len(params['f_pool_size'])):
@@ -169,7 +179,7 @@ class SeldModel(torch.nn.Module):
                 self.fnn_list.append(nn.Linear(params['fnn_size'] if fc_cnt else self.params['rnn_size'], params['fnn_size'], bias=True))
         self.fnn_list.append(nn.Linear(params['fnn_size'] if params['nb_fnn_layers'] else self.params['rnn_size'], out_shape[-1], bias=True))
 
-    def forward(self, x):
+    def forward(self, x): # 前馈网络
         """input输入: (batch_size, mic_channels, time_steps, mel_bins)"""
         for conv_cnt in range(len(self.conv_block_list)):
             x = self.conv_block_list[conv_cnt](x)
